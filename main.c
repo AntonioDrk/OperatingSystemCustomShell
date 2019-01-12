@@ -55,9 +55,9 @@ char* readShellLine(){
 executeMultipleCommands(char* shellLine){
 	char** tokens = splitShellLine(shellLine);
 	char** command;
-  char* token = tokens[0];
+  	char* token = tokens[0];
 	int i, args = 0;
-  int lengthTokens = 1, semiColIndex = 0;
+  	int lengthTokens = 1, semiColIndex = 0;
 
   // Getting the length of the tokens array + the index of the semicolon
   while( token != NULL ){
@@ -69,22 +69,23 @@ executeMultipleCommands(char* shellLine){
   // We allocate first the size of the first command + it's arguments
   // Till the index of ;
   command = malloc(sizeof(char*) * semiColIndex);
-	for(i=0; i < lengthTokens; i++)
+	for(i = 0; i < lengthTokens; i++)
 		if(tokens[i] != ";")
 		{
 			strpcy(command[args], tokens[i]);
-      args++;
+      		args++;
 		}
-		else if(tokens[i] == ";" || i = strlen(tokens) - 1)
+		else if(tokens[i] == ";" || i == lengthTokens - 1)
 		{
 			lsh_execute(command);
 			free(command);
 
-      // Allocation of the remaining memory after the semicolon
-      command = malloc(sizeof(char*) * (lengthTokens - semiColIndex - 1) );
+     		 // Allocation of the remaining memory after the semicolon
+			command = malloc(sizeof(char*) * (lengthTokens - semiColIndex - 1) );
 			args = 0;
 		}
 }
+
 
 
 void shellLoop(){
