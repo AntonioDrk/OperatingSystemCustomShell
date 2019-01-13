@@ -42,7 +42,7 @@ int shellHelp(char **args){
   printf("Type a programs name and it's arguments into the terminal and hit enter\n");
   printf("The following commands are built in:\n");
   for(int i = 0; i < shellNumBuiltin(); i++){
-    printf("\t%s", builtinStr[i]);
+    printf("%s\t", builtinStr[i]);
   }
 
   printf("\nUse the man command for information about other programs\n");
@@ -70,7 +70,7 @@ int shellCd(char **args){
 // Launch PROGRAM from shell
 int shellLaunch(char** args){
   pid_t pid;
-  int status;
+  int status = 0;
 
   pid = fork();
   if(pid == 0){
@@ -151,43 +151,50 @@ char ** splitShellLine(char* line){
 char* readShellLine(){
   char *line = NULL;
   size_t buffer = 0;
-  // Citeste linia din stdin
+  // Read the line from stdin
   getline(&line, &buffer, stdin);
   return line;
 }
 
 // TODO: TEST ME WHEN POSSIBLE
-int executeMultipleCommands(char** args){
-	char** command;
-  char* token = args[0];
-	int i, argsCounter = 0;
-	int lengthTokens = 1, semiColIndex = 0;
+int executeMultipleCommands(char* args){
 
-  // Getting the length of the args array + the index of the semicolon
-  while( token != NULL ){
-    if(strcmp(args[lengthTokens], ";") == 0){
-      semiColIndex = lengthTokens;
-    }
-    lengthTokens++;
+  int length = strlen(args);
+  char* command = malloc(length);
+
+  if(command == NULL){
+    fprintf(stderr, "BabyShell: Error while trying to allocate memory.\n");
+    exit(EXIT_ERROR);
   }
-  // We allocate first the size of the first command + it's arguments
-  // Till the index of ;
-  command = malloc(sizeof(char*) * semiColIndex);
-	for(i = 0; i < lengthTokens; i++)
-		if(strcmp(args[i],";") == 0)
-		{
-			strcpy(command[argsCounter], args[i]);
-  		argsCounter++;
-		}
-		else if(strcmp(args[i],";") == 0 || i == lengthTokens - 1)
-		{
-			shellExecute(command);
-			free(command);
 
-      // Allocation of the remaining memory after the semicolon
-			command = malloc(sizeof(char*) * (lengthTokens - semiColIndex - 1) );
-			argsCounter = 0;
-		}
+  int index = 0;
+  int status = 1;
+
+  for(int i = 0; i < length; i++ , index++){
+    if(args[i] == ';' || i == length - 1){
+
+      command[index] = '\0';
+      status = shellExecute(splitShellLine(command));
+
+      free(command);
+
+      if(status != SUCCES_FLAG){
+        return status;
+      }
+
+      index = -1;
+      if(i != length - 1){
+          command = malloc(length);
+          if(command == NULL){
+            fprintf(stderr, "BabyShell: Error while trying to allocate tokenArray \n");
+            exit(EXIT_ERROR);
+          }
+      }
+      continue;
+    }
+    command[index] = args[i];
+  }
+  return SUCCES_FLAG;
 }
 
 
@@ -195,16 +202,22 @@ int executeMultipleCommands(char** args){
 void shellLoop(){
   char *readLine;
   char **args;
-  int status;
+  int status = 1;
 
   do {
     printf("> ");
     readLine = readShellLine();
-    args = splitShellLine(readLine);
-    status = shellExecute(args);
+
+    // If in the read line there is a ; we parse it as multiple commands
+    if(strchr(readLine,';') != NULL){
+      status = executeMultipleCommands(readLine);
+    }else{
+      args = splitShellLine(readLine);
+      status = shellExecute(args);
+      free(args);
+    }
 
     free(readLine);
-    free(args);
   } while(status);
 }
 
