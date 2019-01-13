@@ -1,7 +1,8 @@
-args#include <stdio.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #define SUCCES_FLAG 1
 #define ERROR_FLAG -1
 #define EXIT_ERROR -1337
@@ -44,7 +45,7 @@ int shellHelp(char **args){
     printf("\t%s", builtinStr[i]);
   }
 
-  printf("Use the man command for information about other programs");
+  printf("\nUse the man command for information about other programs\n");
 
   return SUCCES_FLAG;
 }
@@ -68,23 +69,23 @@ int shellCd(char **args){
 
 // Launch PROGRAM from shell
 int shellLaunch(char** args){
-  pid_t pid, waitingPid;
+  pid_t pid;
   int status;
 
   pid = fork();
   if(pid == 0){
     // Child process
     if(execvp(args[0],args) == -1){
-      perror();
+      perror("BabyShell");
     }
     exit(EXIT_ERROR);
-  } esle if (pid < 0){
+  }else if (pid < 0){
     // Error while trying to fork
-    perror();
+    perror("BabyShell");
   }else{
     // Parent process
     do {
-      waitingPid = waitpid(pid, &status, WUNTRACED);
+      waitpid(pid, &status, WUNTRACED);
     } while(!WIFEXITED(status) && !WIFSIGNALED(status));
   }
 
@@ -118,7 +119,7 @@ char ** splitShellLine(char* line){
   int maxLength = MAXLENGTH_TOK_ARRAY;
   int index = 0;
 
-  char ** tokenArray = malloc(maxLength * sizeof(char*));
+  char **tokenArray = malloc(maxLength * sizeof(char*));
   char *token;
 
   if(tokenArray == NULL){
@@ -143,21 +144,20 @@ char ** splitShellLine(char* line){
 
     token = strtok(NULL,TOKEN_DELIMITATORS);
   }
-  tokenArray[position] = NULL;
+  tokenArray[index] = NULL;
   return tokenArray;
 }
 
 char* readShellLine(){
   char *line = NULL;
-  int buffer = 0;
+  size_t buffer = 0;
   // Citeste linia din stdin
   getline(&line, &buffer, stdin);
   return line;
 }
 
 // TODO: TEST ME WHEN POSSIBLE
-executeMultipleCommands(char** args){
-	char** args = splitShellLine(shellLine);
+int executeMultipleCommands(char** args){
 	char** command;
   char* token = args[0];
 	int i, argsCounter = 0;
@@ -174,14 +174,14 @@ executeMultipleCommands(char** args){
   // Till the index of ;
   command = malloc(sizeof(char*) * semiColIndex);
 	for(i = 0; i < lengthTokens; i++)
-		if(args[i] != ";")
+		if(strcmp(args[i],";") == 0)
 		{
-			strpcy(command[argsCounter], args[i]);
+			strcpy(command[argsCounter], args[i]);
   		argsCounter++;
 		}
-		else if(args[i] == ";" || i == lengthTokens - 1)
+		else if(strcmp(args[i],";") == 0 || i == lengthTokens - 1)
 		{
-			lsh_execute(command);
+			shellExecute(command);
 			free(command);
 
       // Allocation of the remaining memory after the semicolon
@@ -194,20 +194,21 @@ executeMultipleCommands(char** args){
 
 void shellLoop(){
   char *readLine;
-  char *args[];
+  char **args;
   int status;
 
   do {
+    printf("> ");
     readLine = readShellLine();
     args = splitShellLine(readLine);
-    // execute command with args
+    status = shellExecute(args);
 
     free(readLine);
     free(args);
-  } while(stauts);
+  } while(status);
 }
 
-int int main(int argc, char const *argv[]) {
+int main(int argc, char const *argv[]) {
 
   // Loop used to always await input from user and execute multiple commands
   shellLoop();
