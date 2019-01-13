@@ -163,7 +163,7 @@ int spawn_proc (int in, int out, char **args)
   return pid;
 }
 
-int fork_pipes (int n, ***commands)
+int fork_pipes (int n,char ***commands)
 {
   int i;
   pid_t pid;
