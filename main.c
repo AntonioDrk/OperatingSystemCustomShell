@@ -8,18 +8,24 @@
 #define EXIT_ERROR -1337
 #define MAXLENGTH_TOK_ARRAY 32
 #define TOKEN_DELIMITATORS " \t\a\n\r"
+#define MAX_RECINPUT 100
 
 // Function Declarations for the builtin shell commands
 int shellHelp(char **args);
 int shellExit(char **args);
 int shellCd(char **args);
+int shellHistory(char **args);
 
 // List of builtin commands
 char *builtinStr[] = {
   "help",
   "exit",
-  "cd"
+  "cd",
+  "history"
 };
+
+int commandsCalled = 0;
+char *history[MAX_RECINPUT];
 
 // IMPORTANT: MAKE SURE THAT THEY ARE IN THE SAME POSITION IN BOTH ARRAYS!!!
 
@@ -27,7 +33,8 @@ char *builtinStr[] = {
 int (*builtinFunc[]) (char **) = {
   &shellHelp,
   &shellExit,
-  &shellCd
+  &shellCd,
+  &shellHistory
 };
 
 // Get the length of the commands array ()
@@ -110,6 +117,26 @@ int shellExecute(char **args){
 
   // If it isn't a built in function try to launch a program
   return shellLaunch(args);
+}
+
+int shellRecordInput(char *lineRead){ 
+    if(commandsCalled>=MAX_RECINPUT) 
+    {
+      commandsCalled = 0;
+      *history = malloc(MAX_RECINPUT * sizeof(char*));
+    }
+    history[commandsCalled] = malloc(strlen(lineRead));
+    strcpy(history[commandsCalled],lineRead);    
+    commandsCalled++;
+    return SUCCES_FLAG;
+}
+
+int shellHistory(char **args) {
+  for(int i=0;i<commandsCalled;i++)
+    {
+      printf("%s", history[i]);  
+    }
+	return SUCCES_FLAG;
 }
 
 int spawn_proc (int in, int out, char **args)
@@ -278,6 +305,7 @@ void shellLoop(){
   do {
     printf("> ");
     readLine = readShellLine();
+    shellRecordInput(readLine);
 
     // If in the read line there is a ; we parse it as multiple commands
     if(strchr(readLine,';') != NULL){
@@ -293,7 +321,7 @@ void shellLoop(){
 }
 
 int main(int argc, char const *argv[]) {
-
+ 
   // Loop used to always await input from user and execute multiple commands
   shellLoop();
 
