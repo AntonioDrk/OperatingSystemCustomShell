@@ -1,11 +1,115 @@
-#include <stdio.h>
+args#include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#define SUCCES_FLAG 0
-#define EXIT_ERROR -1
+#define SUCCES_FLAG 1
+#define ERROR_FLAG -1
+#define EXIT_ERROR -1337
 #define MAXLENGTH_TOK_ARRAY 32
 #define TOKEN_DELIMITATORS " \t\a\n\r"
+
+// Function Declarations for the builtin shell commands
+int shellHelp(char **args);
+int shellExit(char **args);
+int shellCd(char **args);
+
+// List of builtin commands
+char *builtinStr[] = {
+  "help",
+  "exit",
+  "cd"
+};
+
+// IMPORTANT: MAKE SURE THAT THEY ARE IN THE SAME POSITION IN BOTH ARRAYS!!!
+
+// List of pointers to the functions
+int (*builtinFunc[]) (char **) = {
+  &shellHelp,
+  &shellExit,
+  &shellCd
+};
+
+// Get the length of the commands array ()
+int shellNumBuiltin(){
+  return sizeof(builtinStr) / sizeof(char *);
+}
+
+// IMPLEMENTATION FOR BUILTIN COMMANDS
+int shellHelp(char **args){
+  printf("BabyShell 0.1 \n");
+  printf("This shell was made by: George, Ema, Antonio as a project for Operating Systems class.\n");
+  printf("Type a programs name and it's arguments into the terminal and hit enter\n");
+  printf("The following commands are built in:\n");
+  for(int i = 0; i < shellNumBuiltin(); i++){
+    printf("\t%s", builtinStr[i]);
+  }
+
+  printf("Use the man command for information about other programs");
+
+  return SUCCES_FLAG;
+}
+
+// Returns status 0 so the shellLoop will terminate
+int shellExit(char **args){
+  return 0;
+}
+
+int shellCd(char **args){
+  if(args[1] == NULL){
+    fprintf(stderr, "BabyShell: no argument for \"cd\" found\n");
+  } else{
+    if(chdir(args[1]) != 0){
+      perror("BabyShell");
+    }
+  }
+  return SUCCES_FLAG;
+}
+
+
+// Launch PROGRAM from shell
+int shellLaunch(char** args){
+  pid_t pid, waitingPid;
+  int status;
+
+  pid = fork();
+  if(pid == 0){
+    // Child process
+    if(execvp(args[0],args) == -1){
+      perror();
+    }
+    exit(EXIT_ERROR);
+  } esle if (pid < 0){
+    // Error while trying to fork
+    perror();
+  }else{
+    // Parent process
+    do {
+      waitingPid = waitpid(pid, &status, WUNTRACED);
+    } while(!WIFEXITED(status) && !WIFSIGNALED(status));
+  }
+
+  return SUCCES_FLAG;
+}
+
+
+// Tries to execute first a builtin command, if none is found then
+// Tries to launch a program from shell
+int shellExecute(char **args){
+  if(args[0] == NULL){
+    // Empty command (just an enter), continue reading from input
+    return SUCCES_FLAG;
+  }
+
+  for(int i = 0; i < shellNumBuiltin(); i++){
+    if(strcmp(args[0],builtinStr[i]) == 0){
+      // It's a builtin command
+      return (*builtinFunc[i]) (args);
+    }
+  }
+
+  // If it isn't a built in function try to launch a program
+  return shellLaunch(args);
+}
 
 // Splits the arguments into a vector and returns it
 char ** splitShellLine(char* line){
@@ -52,16 +156,16 @@ char* readShellLine(){
 }
 
 // TODO: TEST ME WHEN POSSIBLE
-executeMultipleCommands(char* shellLine){
-	char** tokens = splitShellLine(shellLine);
+executeMultipleCommands(char** args){
+	char** args = splitShellLine(shellLine);
 	char** command;
-  	char* token = tokens[0];
-	int i, args = 0;
-  	int lengthTokens = 1, semiColIndex = 0;
+  char* token = args[0];
+	int i, argsCounter = 0;
+	int lengthTokens = 1, semiColIndex = 0;
 
-  // Getting the length of the tokens array + the index of the semicolon
+  // Getting the length of the args array + the index of the semicolon
   while( token != NULL ){
-    if(strcmp(tokens[lengthTokens], ";") == 0){
+    if(strcmp(args[lengthTokens], ";") == 0){
       semiColIndex = lengthTokens;
     }
     lengthTokens++;
@@ -70,19 +174,19 @@ executeMultipleCommands(char* shellLine){
   // Till the index of ;
   command = malloc(sizeof(char*) * semiColIndex);
 	for(i = 0; i < lengthTokens; i++)
-		if(tokens[i] != ";")
+		if(args[i] != ";")
 		{
-			strpcy(command[args], tokens[i]);
-      		args++;
+			strpcy(command[argsCounter], args[i]);
+  		argsCounter++;
 		}
-		else if(tokens[i] == ";" || i == lengthTokens - 1)
+		else if(args[i] == ";" || i == lengthTokens - 1)
 		{
 			lsh_execute(command);
 			free(command);
 
-     		 // Allocation of the remaining memory after the semicolon
+      // Allocation of the remaining memory after the semicolon
 			command = malloc(sizeof(char*) * (lengthTokens - semiColIndex - 1) );
-			args = 0;
+			argsCounter = 0;
 		}
 }
 
