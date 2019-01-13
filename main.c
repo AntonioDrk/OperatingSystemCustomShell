@@ -8,18 +8,24 @@
 #define EXIT_ERROR -1337
 #define MAXLENGTH_TOK_ARRAY 32
 #define TOKEN_DELIMITATORS " \t\a\n\r"
+#define MAX_RECINPUT 100
 
 // Function Declarations for the builtin shell commands
 int shellHelp(char **args);
 int shellExit(char **args);
 int shellCd(char **args);
+int shellHistory(char **args);
 
 // List of builtin commands
 char *builtinStr[] = {
   "help",
   "exit",
-  "cd"
+  "cd",
+  "history"
 };
+
+int commandsCalled = 0;
+char *history[MAX_RECINPUT];
 
 // IMPORTANT: MAKE SURE THAT THEY ARE IN THE SAME POSITION IN BOTH ARRAYS!!!
 
@@ -27,7 +33,8 @@ char *builtinStr[] = {
 int (*builtinFunc[]) (char **) = {
   &shellHelp,
   &shellExit,
-  &shellCd
+  &shellCd,
+  &shellHistory
 };
 
 // Get the length of the commands array ()
@@ -110,6 +117,97 @@ int shellExecute(char **args){
 
   // If it isn't a built in function try to launch a program
   return shellLaunch(args);
+}
+
+int shellRecordInput(char *lineRead){ 
+    if(commandsCalled>=MAX_RECINPUT) 
+    {
+      commandsCalled = 0;
+      *history = malloc(MAX_RECINPUT * sizeof(char*));
+    }
+    history[commandsCalled] = malloc(strlen(lineRead));
+    strcpy(history[commandsCalled],lineRead);    
+    commandsCalled++;
+    return SUCCES_FLAG;
+}
+
+int shellHistory(char **args) {
+  for(int i=0;i<commandsCalled;i++)
+    {
+      printf("%s", history[i]);  
+    }
+	return SUCCES_FLAG;
+}
+
+int spawn_proc (int in, int out, char **args)
+{
+  pid_t pid;
+
+  if ((pid = fork ()) == 0)
+    {
+      if (in != 0)
+        {
+          dup2 (in, 0);
+          close (in);
+        }
+
+      if (out != 1)
+        {
+          dup2 (out, 1);
+          close (out);
+        }
+
+      return execvp (args[0], args);
+    }
+
+  return pid;
+}
+
+int fork_pipes (int n,char ***commands)
+{
+  int i;
+  pid_t pid;
+  int in, fd [2];
+
+  /* The first process should get its input from the original file descriptor 0.  */
+  in = 0;
+
+  /* Note the loop bound, we spawn here all, but the last stage of the pipeline.  */
+  for (i = 0; i < n - 1; ++i)
+    {
+      pipe (fd);
+
+      /* f [1] is the write end of the pipe, we carry `in` from the prev iteration.  */
+      spawn_proc (in, fd [1], commands[i]);
+
+      /* No need for the write end of the pipe, the child will write here.  */
+      close (fd [1]);
+
+      /* Keep the read end of the pipe, the next child will read from there.  */
+      in = fd [0];
+    }
+
+  /* Last stage of the pipeline - set stdin be the read end of the previous pipe
+     and output to the original file descriptor 1. */  
+  if (in != 0)
+    dup2 (in, 0);
+
+  /* Execute the last stage with the current process. */
+  return execvp (commands[n-1][0], commands[n-1]);
+}
+
+int shellPipe(char **args) {
+	char ***commands;
+	int n = 0;
+	char **token = strtok(args,"|");
+	while(token!=NULL) {
+		commands = realloc(commands, (n+1)*sizeof(char**));
+		strcat(commands[n], token);
+		n++;
+		
+		token=strtok(args,"|");
+	}
+	fork_pipes(n, commands);
 }
 
 // Splits the arguments into a vector and returns it
@@ -207,6 +305,7 @@ void shellLoop(){
   do {
     printf("> ");
     readLine = readShellLine();
+    shellRecordInput(readLine);
 
     // If in the read line there is a ; we parse it as multiple commands
     if(strchr(readLine,';') != NULL){
@@ -222,7 +321,7 @@ void shellLoop(){
 }
 
 int main(int argc, char const *argv[]) {
-
+ 
   // Loop used to always await input from user and execute multiple commands
   shellLoop();
 
